@@ -1,19 +1,22 @@
-<!-- ═══ AAA建材王总翻新 状态栏 v1.0 ═══ -->
-<!-- v1.0: 初版。手机深色风格/资产卡片/情妇卡片网格/详情弹窗分Tab/头像上传localStorage -->
-<!-- 部署：托管到catbox/jsdelivr，正则把 <StatusPlaceHolderImpl/> 替换成本HTML的iframe -->
+<!-- ═══ AAA建材王总翻新 状态栏 v2.0 ═══ -->
+<!-- v2.0: 重写。修export语法错误/openModal alias崩溃/fixed弹窗截断/AI文本XSS；保留手机深色风格与全部功能 -->
+<!-- 部署：托管到GitHub Pages，正则把 <StatusPlaceHolderImpl/> 替换成加载本HTML的iframe -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #0d0d0f; }
   body {
-    background: #0d0d0f;
     color: #e8e8e8;
     font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
     padding: 8px;
+    font-variant-numeric: tabular-nums;
   }
   .sb-container {
+    position: relative;
     max-width: 480px;
     margin: 0 auto;
     background: #1a1a1e;
@@ -106,7 +109,7 @@
     color: #8a8a95;
   }
   .sb-card.has-avatar .sb-avatar:after { display: none; }
-  .sb-name-wrap { margin-left: 8px; overflow: hidden; }
+  .sb-name-wrap { margin-left: 8px; overflow: hidden; flex: 1 1 auto; min-width: 0; }
   .sb-name { font-size: 13px; font-weight: 600; color: #e8e8e8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sb-alias { font-size: 10px; color: #6a6a75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* 沦陷度条 */
@@ -135,13 +138,14 @@
   }
   .sb-tag-wife { background: #3a2a1a; color: #fbbf24; }
   .sb-tag-daughter { background: #1a2a3a; color: #60a5fa; }
-  /* 弹窗 */
+  /* 弹窗：absolute 覆盖 sb-root（iframe 内最稳，不撑高、不截断） */
   .sb-modal-bg {
     display: none;
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    position: absolute;
+    inset: 0;
     background: rgba(0,0,0,0.7);
     z-index: 100;
-    padding: 20px;
+    padding: 10px;
   }
   .sb-modal-bg.active { display: flex; align-items: center; justify-content: center; }
   .sb-modal {
@@ -150,7 +154,7 @@
     border-radius: 12px;
     max-width: 420px;
     width: 100%;
-    max-height: 80vh;
+    max-height: 100%;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -160,6 +164,7 @@
     align-items: center;
     padding: 14px;
     border-bottom: 1px solid #2a2a30;
+    flex-shrink: 0;
   }
   .sb-modal-avatar {
     width: 56px; height: 56px;
@@ -171,7 +176,7 @@
     flex-shrink: 0;
     border: 1px solid #3a3a45;
   }
-  .sb-modal-title { margin-left: 12px; }
+  .sb-modal-title { margin-left: 12px; flex: 1 1 auto; min-width: 0; }
   .sb-modal-name { font-size: 16px; font-weight: 700; }
   .sb-modal-alias { font-size: 12px; color: #7a7a85; }
   .sb-modal-close {
@@ -179,22 +184,25 @@
     background: none; border: none;
     color: #6a6a75; font-size: 20px;
     cursor: pointer; padding: 0 4px;
+    flex-shrink: 0;
   }
-  .sb-tabs { display: flex; border-bottom: 1px solid #2a2a30; padding: 0 14px; }
+  .sb-tabs { display: flex; border-bottom: 1px solid #2a2a30; padding: 0 14px; flex-shrink: 0; overflow-x: auto; }
   .sb-tab {
     padding: 8px 12px;
     font-size: 12px;
     color: #6a6a75;
     cursor: pointer;
     border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .sb-tab.active { color: #e8e8e8; border-bottom-color: #4ade80; }
-  .sb-tab-content { padding: 14px; overflow-y: auto; flex: 1; }
+  .sb-tab-content { padding: 14px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
   .sb-tab-pane { display: none; }
   .sb-tab-pane.active { display: block; }
   .sb-field { margin-bottom: 10px; }
   .sb-field-label { font-size: 11px; color: #6a6a75; margin-bottom: 2px; }
-  .sb-field-value { font-size: 13px; color: #d8d8d8; }
+  .sb-field-value { font-size: 13px; color: #d8d8d8; word-break: break-word; }
   .sb-field-value.muted { color: #5a5a65; }
   .sb-fall-bar-large { height: 8px; margin: 6px 0; }
   .sb-fall-fill-large { height: 100%; border-radius: 4px; }
@@ -215,6 +223,7 @@
     color: #9a9aa5;
     font-style: italic;
     border-radius: 0 6px 6px 0;
+    word-break: break-word;
   }
   /* 返利弹窗 */
   .rebate-info {
@@ -222,12 +231,13 @@
     border: 1px solid #2a4a2a;
     border-radius: 8px;
     padding: 14px;
-    margin: 10px;
     font-size: 12px;
     color: #a8c8a8;
     line-height: 1.6;
   }
   .rebate-info b { color: #4ade80; }
+  .sb-empty { padding: 20px; text-align: center; color: #5a5a65; font-size: 12px; }
+  .sb-loading { padding: 20px; text-align: center; color: #5a5a65; font-size: 12px; }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -249,40 +259,44 @@
         <div class="sb-money-value spent" id="sb-spent">¥0</div>
       </div>
     </div>
-    <button class="sb-rebate-btn" onclick="showRebate()">💡 十倍返利系统</button>
+    <button class="sb-rebate-btn" id="sb-rebate-btn">💡 十倍返利系统</button>
   </div>
-  <div class="sb-cards" id="sb-cards"></div>
-</div>
+  <div class="sb-cards" id="sb-cards">
+    <div class="sb-loading">读取中…</div>
+  </div>
 
-<!-- 详情弹窗 -->
-<div class="sb-modal-bg" id="sb-modal-bg" onclick="closeModal(event)">
-  <div class="sb-modal" onclick="event.stopPropagation()">
-    <div class="sb-modal-header">
-      <div class="sb-modal-avatar" id="modal-avatar"></div>
-      <div class="sb-modal-title">
-        <div class="sb-modal-name" id="modal-name"></div>
-        <div class="sb-modal-alias" id="modal-alias"></div>
+  <!-- 详情弹窗（在 sb-root 内，absolute 覆盖） -->
+  <div class="sb-modal-bg" id="sb-modal-bg">
+    <div class="sb-modal">
+      <div class="sb-modal-header">
+        <div class="sb-modal-avatar" id="modal-avatar"></div>
+        <div class="sb-modal-title">
+          <div class="sb-modal-name" id="modal-name"></div>
+          <div class="sb-modal-alias" id="modal-alias"></div>
+        </div>
+        <button class="sb-modal-close" id="modal-close-btn">✕</button>
       </div>
-      <button class="sb-modal-close" onclick="closeModal()">✕</button>
+      <div class="sb-tabs" id="modal-tabs"></div>
+      <div class="sb-tab-content" id="modal-content"></div>
     </div>
-    <div class="sb-tabs" id="modal-tabs"></div>
-    <div class="sb-tab-content" id="modal-content"></div>
   </div>
-</div>
 
-<!-- 返利说明弹窗 -->
-<div class="sb-modal-bg" id="rebate-modal-bg" onclick="closeRebate(event)">
-  <div class="sb-modal" style="max-width:360px" onclick="event.stopPropagation()">
-    <div class="sb-modal-header">
-      <div class="sb-modal-title"><div class="sb-modal-name">💡 十倍返利系统</div></div>
-      <button class="sb-modal-close" onclick="closeRebate()">✕</button>
-    </div>
-    <div class="rebate-info">
-      <b>规则：</b>给任何女性花钱时，金额×10自动返现到当前资产。<br><br>
-      花1万 → 返10万<br>
-      花10万 → 返100万<br>
-      花100万 → 返1000万<br><br>
-      <b>效果：</b>越花越有钱，花钱就是赚钱。王总的资产会随包养开销不断暴涨。
+  <!-- 返利说明弹窗 -->
+  <div class="sb-modal-bg" id="rebate-modal-bg">
+    <div class="sb-modal" style="max-width:360px">
+      <div class="sb-modal-header">
+        <div class="sb-modal-title"><div class="sb-modal-name">💡 十倍返利系统</div></div>
+        <button class="sb-modal-close" id="rebate-close-btn">✕</button>
+      </div>
+      <div class="sb-tab-content">
+        <div class="rebate-info">
+          <b>规则：</b>给任何女性花钱时，金额×10自动返现到当前资产。<br><br>
+          花1万 → 返10万<br>
+          花10万 → 返100万<br>
+          花100万 → 返1000万<br><br>
+          <b>效果：</b>越花越有钱，花钱就是赚钱。王总的资产会随包养开销不断暴涨。
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -311,34 +325,59 @@ const STAGE_COLORS = {
 };
 
 // ═══ 工具函数 ═══
+// 路径取值：空串/undefined/null 都回退 default
 function g(state, path, def) {
-  const v = _.get(state, path, def);
-  return (v === '' || v === undefined || v === null) ? def : v;
+  try {
+    const v = _.get(state, path, def);
+    return (v === '' || v === undefined || v === null) ? def : v;
+  } catch (e) { return def; }
+}
+// 任意值转数组（治 lodash get 的 null 陷阱）
+function asArr(v) {
+  if (Array.isArray(v)) return v;
+  if (v == null) return [];
+  return [v];
+}
+// 任意值转对象
+function asObj(v) {
+  return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+}
+// AI 原文转义（插 innerHTML 前必过）
+function esc(s) {
+  s = (s == null) ? '' : String(s);
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 function fmtMoney(n) {
   n = Number(n) || 0;
-  if (n >= 100000000) return '¥' + (n/100000000).toFixed(2) + '亿';
-  if (n >= 10000) return '¥' + (n/10000).toFixed(1) + '万';
+  if (n < 0) n = 0;
+  if (n >= 100000000) return '¥' + (n / 100000000).toFixed(2) + '亿';
+  if (n >= 10000) return '¥' + (n / 10000).toFixed(1) + '万';
   return '¥' + n.toLocaleString();
 }
-function safeStr(v, def) { return (v && String(v).trim()) ? String(v) : (def || '—'); }
+// 取显示串：空值回退默认
+function safeStr(v, def) {
+  def = (def == null) ? '—' : def;
+  if (v == null) return def;
+  const s = String(v).trim();
+  return s ? s : def;
+}
 
 // ═══ 头像 localStorage ═══
 function getAvatar(uid) {
-  try { return localStorage.getItem('sb_avatar_' + uid) || ''; } catch(e) { return ''; }
+  try { return localStorage.getItem('sb_avatar_' + uid) || ''; } catch (e) { return ''; }
 }
 function setAvatar(uid, dataUrl) {
-  try { localStorage.setItem('sb_avatar_' + uid, dataUrl); } catch(e) {}
+  try { localStorage.setItem('sb_avatar_' + uid, dataUrl); } catch (e) {}
 }
 function uploadAvatar(uid, onDone) {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  input.onchange = function() {
+  input.onchange = function () {
     const file = this.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
       setAvatar(uid, e.target.result);
       if (onDone) onDone(e.target.result);
     };
@@ -347,22 +386,26 @@ function uploadAvatar(uid, onDone) {
   input.click();
 }
 
-// ═══ 数据读取 ═══
+// ═══ 数据读取（五级降级） ═══
 let _state = {};
 async function loadData() {
-  try {
-    await waitGlobalInitialized('Mvu');
-    await waitUntil(() => _.has(getVariables({type:'message'}), 'stat_data'));
-  } catch(e) {}
+  try { await waitGlobalInitialized('Mvu'); } catch (e) {}
+  try { await waitUntil(() => _.has(getVariables({ type: 'message' }), 'stat_data')); } catch (e) {}
   let stat = null;
-  try { stat = Mvu.getMvuData({type:'message', message_id: getCurrentMessageId()}); } catch(e) {}
+  try { stat = Mvu.getMvuData({ type: 'message', message_id: getCurrentMessageId() }); } catch (e) {}
   if (!stat) {
-    try { stat = getVariables({type:'message', message_id:'latest'}).stat_data; } catch(e) {}
+    try { stat = Mvu.getMvuData('latest'); } catch (e) {}
   }
   if (!stat) {
-    try { stat = getVariables({type:'message'}).stat_data; } catch(e) {}
+    try { stat = getVariables({ type: 'message', message_id: 'latest' }).stat_data; } catch (e) {}
   }
-  _state = stat || {};
+  if (!stat) {
+    try { stat = getVariables({ type: 'message' }).stat_data; } catch (e) {}
+  }
+  if (!stat) {
+    try { stat = getVariables({}).stat_data; } catch (e) {}
+  }
+  _state = asObj(stat);
   return _state;
 }
 
@@ -370,32 +413,42 @@ async function loadData() {
 function render() {
   const s = _state;
   // 时间
-  document.getElementById('sb-date').textContent = g(s, P.日期, '--') + ' ' + g(s, P.星期, '');
-  document.getElementById('sb-period').textContent = g(s, P.时段, '--');
-  document.getElementById('sb-day').textContent = '第' + g(s, P.天数, 1) + '天';
+  document.getElementById('sb-date').textContent = safeStr(g(s, P.日期, ''), '--') + ' ' + safeStr(g(s, P.星期, ''), '');
+  document.getElementById('sb-period').textContent = safeStr(g(s, P.时段, ''), '--');
+  const dayNum = Number(g(s, P.天数, 1)) || 1;
+  document.getElementById('sb-day').textContent = '第' + dayNum + '天';
   // 资产
   document.getElementById('sb-asset').textContent = fmtMoney(g(s, P.当前资产, 0));
   document.getElementById('sb-spent').textContent = fmtMoney(g(s, P.花销总额, 0));
   // 卡片
   const cardsEl = document.getElementById('sb-cards');
   cardsEl.innerHTML = '';
-  const women = g(s, P.女人们, {});
-  const wife = g(s, P.老婆, null);
+  let count = 0;
+  const women = asObj(g(s, P.女人们, {}));
+  const wife = asObj(g(s, P.老婆, null));
   // 情妇+女儿卡片（都在 /女人们 字典里，女儿 UID 固定 "daughter"）
   for (const uid in women) {
-    const w = women[uid];
-    if (!w || !w.基本信息 || !w.基本信息.姓名) continue;
+    if (!Object.prototype.hasOwnProperty.call(women, uid)) continue;
+    const w = asObj(women[uid]);
+    const info = asObj(w.基本信息);
+    if (!info.姓名) continue;
     const type = (uid === 'daughter') ? 'daughter' : 'concubine';
     cardsEl.appendChild(buildCard(uid, w, type));
+    count++;
   }
   // 老婆卡片
-  if (wife && wife.基本信息 && wife.基本信息.姓名) {
+  const wInfo = asObj(wife.基本信息);
+  if (wInfo.姓名) {
     cardsEl.appendChild(buildCard('wife', wife, 'wife'));
+    count++;
+  }
+  if (count === 0) {
+    cardsEl.innerHTML = '<div class="sb-empty">暂无女性档案</div>';
   }
 }
 
 function buildCard(uid, data, type) {
-  const info = data.基本信息 || {};
+  const info = asObj(data.基本信息);
   const avatar = getAvatar(uid);
   const card = document.createElement('div');
   card.className = 'sb-card' + (avatar ? ' has-avatar' : '');
@@ -403,81 +456,88 @@ function buildCard(uid, data, type) {
   const alias = safeStr(info.网名, '');
   let tagHtml = '';
   let fallHtml = '';
-  let footer = safeStr(data.当前状态 && data.当前状态.位置, '位置未知');
+  const status = asObj(data.当前状态);
+  const footer = safeStr(status.位置, '位置未知');
   if (type === 'wife') {
     tagHtml = '<span class="sb-tag sb-tag-wife">正室</span>';
   } else if (type === 'daughter') {
     tagHtml = '<span class="sb-tag sb-tag-daughter">女儿</span>';
   }
-  if (type === 'concubine' && data.沦陷度) {
-    const fall = data.沦陷度.当前值 || 0;
-    const stage = data.沦陷度.阶段 || '公事应付';
+  if (type === 'concubine') {
+    const fall = asObj(data.沦陷度);
+    const fallVal = Number(fall.当前值) || 0;
+    const stage = safeStr(fall.阶段, '公事应付');
     const color = STAGE_COLORS[stage] || '#6a6a75';
     fallHtml = '<div class="sb-fall-bar-wrap">' +
-      '<div class="sb-fall-label"><span class="sb-fall-stage">' + stage + '</span><span class="sb-fall-value">' + fall + '</span></div>' +
-      '<div class="sb-fall-bar"><div class="sb-fall-fill" style="width:' + fall + '%;background:' + color + '"></div></div>' +
+      '<div class="sb-fall-label"><span class="sb-fall-stage">' + esc(stage) + '</span><span class="sb-fall-value">' + fallVal + '</span></div>' +
+      '<div class="sb-fall-bar"><div class="sb-fall-fill" style="width:' + fallVal + '%;background:' + color + '"></div></div>' +
     '</div>';
   }
   card.innerHTML =
     '<div class="sb-card-header">' +
-      '<div class="sb-avatar" style="' + (avatar ? 'background-image:url(\'' + avatar + '\')' : '') + '"></div>' +
+      '<div class="sb-avatar" style="' + (avatar ? 'background-image:url(\'' + avatar.replace(/'/g, "\\'") + '\')' : '') + '"></div>' +
       '<div class="sb-name-wrap">' + tagHtml +
-        '<div class="sb-name">' + name + '</div>' +
-        (alias && alias !== '—' ? '<div class="sb-alias">(' + alias + ')</div>' : '') +
+        '<div class="sb-name">' + esc(name) + '</div>' +
+        (alias && alias !== '—' ? '<div class="sb-alias">(' + esc(alias) + ')</div>' : '') +
       '</div>' +
     '</div>' + fallHtml +
-    '<div class="sb-card-footer">' + footer + '</div>';
-  card.onclick = function(e) {
+    '<div class="sb-card-footer">' + esc(footer) + '</div>';
+  card.addEventListener('click', function (e) {
     if (e.target.classList.contains('sb-avatar')) {
       e.stopPropagation();
-      uploadAvatar(uid, function(newAvatar) {
-        e.target.style.backgroundImage = "url('" + newAvatar + "')";
+      uploadAvatar(uid, function (newAvatar) {
+        e.target.style.backgroundImage = "url('" + newAvatar.replace(/'/g, "\\'") + "')";
         card.classList.add('has-avatar');
       });
       return;
     }
     openModal(uid, data, type);
-  };
+  });
   return card;
 }
 
 // ═══ 详情弹窗 ═══
 function openModal(uid, data, type) {
-  const info = data.基本信息 || {};
+  const info = asObj(data.基本信息);
   const avatar = getAvatar(uid);
-  document.getElementById('modal-avatar').style.backgroundImage = avatar ? "url('" + avatar + "')" : '';
-  document.getElementById('modal-avatar').onclick = function() {
-    uploadAvatar(uid, function(newAvatar) {
-      document.getElementById('modal-avatar').style.backgroundImage = "url('" + newAvatar + "')";
+  const avatarEl = document.getElementById('modal-avatar');
+  avatarEl.style.backgroundImage = avatar ? "url('" + avatar.replace(/'/g, "\\'") + "')" : '';
+  avatarEl.onclick = function () {
+    uploadAvatar(uid, function (newAvatar) {
+      avatarEl.style.backgroundImage = "url('" + newAvatar.replace(/'/g, "\\'") + "')";
     });
   };
   document.getElementById('modal-name').textContent = safeStr(info.姓名, '未命名');
-  document.getElementById('modal-alias').textContent = alias ? '(' + alias + ')' : '';
-  document.getElementById('modal-alias').textContent = info.网名 ? '(' + info.网名 + ')' : '';
+  const alias = safeStr(info.网名, '');
+  document.getElementById('modal-alias').textContent = (alias && alias !== '—') ? '(' + alias + ')' : '';
 
   // Tab定义
   const tabs = [];
-  tabs.push({id:'basic', name:'基本信息'});
+  tabs.push({ id: 'basic', name: '基本信息' });
   if (type === 'concubine') {
-    tabs.push({id:'fall', name:'沦陷度'});
-    tabs.push({id:'nsfw', name:'NSFW'});
+    tabs.push({ id: 'fall', name: '沦陷度' });
+    tabs.push({ id: 'nsfw', name: 'NSFW' });
   } else if (type === 'wife') {
-    tabs.push({id:'nsfw', name:'NSFW'});
+    tabs.push({ id: 'nsfw', name: 'NSFW' });
+  } else if (type === 'daughter') {
+    tabs.push({ id: 'fall', name: '沦陷度' });
+    tabs.push({ id: 'nsfw', name: 'NSFW' });
   }
-  tabs.push({id:'status', name:'当前状态'});
+  tabs.push({ id: 'status', name: '当前状态' });
 
   const tabsEl = document.getElementById('modal-tabs');
   tabsEl.innerHTML = '';
-  tabs.forEach((t, i) => {
+  tabs.forEach(function (t, i) {
     const tab = document.createElement('div');
     tab.className = 'sb-tab' + (i === 0 ? ' active' : '');
     tab.textContent = t.name;
-    tab.onclick = function() {
-      document.querySelectorAll('.sb-tab').forEach(x => x.classList.remove('active'));
-      document.querySelectorAll('.sb-tab-pane').forEach(x => x.classList.remove('active'));
+    tab.addEventListener('click', function () {
+      document.querySelectorAll('.sb-tab').forEach(function (x) { x.classList.remove('active'); });
+      document.querySelectorAll('.sb-tab-pane').forEach(function (x) { x.classList.remove('active'); });
       tab.classList.add('active');
-      document.getElementById('pane-' + t.id).classList.add('active');
-    };
+      const pane = document.getElementById('pane-' + t.id);
+      if (pane) pane.classList.add('active');
+    });
     tabsEl.appendChild(tab);
   });
 
@@ -487,49 +547,53 @@ function openModal(uid, data, type) {
   // 基本信息
   let basicHtml = '<div class="sb-tab-pane active" id="pane-basic">' +
     field('身份', info.身份) +
-    field('年龄', info.年龄 ? info.年龄 + '岁' : '') +
-    field('网名', info.网名 ? '(' + info.网名 + ')' : '') +
+    field('年龄', info.年龄 ? (Number(info.年龄) || 0) + '岁' : '') +
+    field('网名', info.网名) +
   '</div>';
   contentEl.insertAdjacentHTML('beforeend', basicHtml);
 
   // 沦陷度
-  if (type === 'concubine' && data.沦陷度) {
-    const fall = data.沦陷度;
-    const stage = fall.阶段 || '公事应付';
+  if ((type === 'concubine' || type === 'daughter') && data.沦陷度) {
+    const fall = asObj(data.沦陷度);
+    const fallVal = Number(fall.当前值) || 0;
+    const stage = safeStr(fall.阶段, '公事应付');
     const color = STAGE_COLORS[stage] || '#6a6a75';
+    const thought = safeStr(data.内心想法, '');
     const fallHtml = '<div class="sb-tab-pane" id="pane-fall">' +
-      field('当前值', (fall.当前值||0) + ' / 100') +
-      '<div class="sb-fall-bar sb-fall-bar-large"><div class="sb-fall-fill sb-fall-fill-large" style="width:' + (fall.当前值||0) + '%;background:' + color + '"></div></div>' +
-      field('阶段', '<span style="color:' + color + '">' + stage + '</span>') +
-      field('做爱次数', fall.做爱次数 || 0) +
-      field('高潮次数', fall.高潮次数 || 0) +
-      field('当轮高潮', (fall.本轮高潮数||0) + ' / ' + (fall.高潮上限||5)) +
-      (data.内心想法 ? '<div class="sb-field"><div class="sb-field-label">内心想法</div><div class="sb-inner-thought">' + data.内心想法 + '</div></div>' : '') +
+      field('当前值', fallVal + ' / 100') +
+      '<div class="sb-fall-bar sb-fall-bar-large"><div class="sb-fall-fill sb-fall-fill-large" style="width:' + fallVal + '%;background:' + color + '"></div></div>' +
+      field('阶段', stage, color) +
+      field('做爱次数', Number(fall.做爱次数) || 0) +
+      field('高潮次数', Number(fall.高潮次数) || 0) +
+      field('当轮高潮', (Number(fall.本轮高潮数) || 0) + ' / ' + (Number(fall.高潮上限) || 5)) +
+      (thought && thought !== '—' ? '<div class="sb-field"><div class="sb-field-label">内心想法</div><div class="sb-inner-thought">' + esc(thought) + '</div></div>' : '') +
     '</div>';
     contentEl.insertAdjacentHTML('beforeend', fallHtml);
   }
 
   // NSFW
-  if ((type === 'concubine' || type === 'wife') && data.NSFW) {
-    const nsfw = data.NSFW;
+  if (data.NSFW) {
+    const nsfw = asObj(data.NSFW);
     const nsfwHtml = '<div class="sb-tab-pane" id="pane-nsfw">' +
-      chipField('敏感点', nsfw.敏感点) +
-      chipField('已解锁姿势', nsfw.已解锁姿势) +
-      chipField('特殊癖好', nsfw.特殊癖好) +
+      chipField('敏感点', asArr(nsfw.敏感点)) +
+      chipField('已解锁姿势', asArr(nsfw.已解锁姿势)) +
+      chipField('特殊癖好', asArr(nsfw.特殊癖好)) +
     '</div>';
     contentEl.insertAdjacentHTML('beforeend', nsfwHtml);
   }
 
   // 当前状态 + 花销
+  const st = asObj(data.当前状态);
   let statusHtml = '<div class="sb-tab-pane" id="pane-status">' +
-    field('位置', data.当前状态 && data.当前状态.位置) +
-    field('着装', data.当前状态 && data.当前状态.着装) +
-    field('身体状态', data.当前状态 && data.当前状态.身体状态) +
+    field('位置', st.位置) +
+    field('着装', st.着装) +
+    field('身体状态', st.身体状态) +
   '</div>';
   if (data.花销) {
+    const sp = asObj(data.花销);
     statusHtml += '<div style="margin-top:14px;border-top:1px solid #2a2a30;padding-top:10px">' +
-      field('累计花费', fmtMoney(data.花销.累计花费 || 0)) +
-      field('最近大礼', data.花销.最近大礼) +
+      field('累计花费', fmtMoney(sp.累计花费)) +
+      field('最近大礼', sp.最近大礼) +
     '</div>';
   }
   contentEl.insertAdjacentHTML('beforeend', statusHtml);
@@ -537,56 +601,87 @@ function openModal(uid, data, type) {
   document.getElementById('sb-modal-bg').classList.add('active');
 }
 
-function field(label, value) {
+// 字段行（value 为 AI 文本，走 esc）
+function field(label, value, color) {
   const v = safeStr(value, '');
-  return '<div class="sb-field"><div class="sb-field-label">' + label + '</div><div class="sb-field-value ' + (v ? '' : 'muted') + '">' + (v || '—') + '</div></div>';
+  const valHtml = v && v !== '—'
+    ? '<div class="sb-field-value">' + (color ? '<span style="color:' + color + '">' + esc(v) + '</span>' : esc(v)) + '</div>'
+    : '<div class="sb-field-value muted">—</div>';
+  return '<div class="sb-field"><div class="sb-field-label">' + esc(label) + '</div>' + valHtml + '</div>';
 }
+// chip 字段（每个标签 esc）
 function chipField(label, arr) {
   if (!arr || !arr.length) return field(label, '');
-  const chips = arr.map(c => '<span class="sb-chip">' + safeStr(c) + '</span>').join('');
-  return '<div class="sb-field"><div class="sb-field-label">' + label + '</div><div class="sb-chips">' + chips + '</div></div>';
+  const chips = arr.map(function (c) { return '<span class="sb-chip">' + esc(safeStr(c, '')) + '</span>'; }).join('');
+  return '<div class="sb-field"><div class="sb-field-label">' + esc(label) + '</div><div class="sb-chips">' + chips + '</div></div>';
 }
 
+// ═══ 弹窗开关（挂 window，供 inline/事件调用） ═══
 function closeModal(e) {
-  if (e && e.target.id !== 'sb-modal-bg') return;
+  if (e && e.target && e.target.id !== 'sb-modal-bg') return;
   document.getElementById('sb-modal-bg').classList.remove('active');
 }
 function showRebate() { document.getElementById('rebate-modal-bg').classList.add('active'); }
 function closeRebate(e) {
-  if (e && e.target.id !== 'rebate-modal-bg') return;
+  if (e && e.target && e.target.id !== 'rebate-modal-bg') return;
   document.getElementById('rebate-modal-bg').classList.remove('active');
+}
+// 挂全局
+window.closeModal = closeModal;
+window.showRebate = showRebate;
+window.closeRebate = closeRebate;
+
+// ═══ 事件绑定（静态骨架，绑一次） ═══
+function bindStatic() {
+  // 返利按钮
+  document.getElementById('sb-rebate-btn').addEventListener('click', showRebate);
+  // 详情弹窗：点背景关闭
+  document.getElementById('sb-modal-bg').addEventListener('click', closeModal);
+  document.getElementById('modal-close-btn').addEventListener('click', function () { closeModal(); });
+  // 返利弹窗：点背景关闭
+  document.getElementById('rebate-modal-bg').addEventListener('click', closeRebate);
+  document.getElementById('rebate-close-btn').addEventListener('click', function () { closeRebate(); });
 }
 
 // ═══ 初始化与刷新 ═══
 let _refreshing = false;
+async function refresh() {
+  if (_refreshing) return;
+  _refreshing = true;
+  try {
+    await loadData();
+    render();
+  } catch (e) {}
+  _refreshing = false;
+}
+
 async function init() {
+  bindStatic();
   await loadData();
   render();
   try {
-    eventOn(tavern_events.MESSAGE_UPDATED, async () => {
+    eventOn(tavern_events.MESSAGE_UPDATED, function () {
       if (_refreshing) return;
       _refreshing = true;
-      setTimeout(async () => {
-        await loadData();
-        render();
+      setTimeout(async function () {
+        try { await loadData(); render(); } catch (e) {}
         _refreshing = false;
       }, 300);
     });
-    eventOn(tavern_events.MESSAGE_RECEIVED, async () => {
+    eventOn(tavern_events.MESSAGE_RECEIVED, function () {
       if (_refreshing) return;
       _refreshing = true;
-      setTimeout(async () => {
-        await loadData();
-        render();
+      setTimeout(async function () {
+        try { await loadData(); render(); } catch (e) {}
         _refreshing = false;
       }, 1000);
     });
-  } catch(e) {}
+  } catch (e) {}
 }
 
+// 启动：jQuery ready（禁 DOMContentLoaded——远程 load 不触发），errorCatched 包住防白屏
 $(errorCatched(init));
-$(window).on('pagehide', function() {});
-export {};
+$(window).on('pagehide', function () {});
 </script>
 </body>
 </html>
